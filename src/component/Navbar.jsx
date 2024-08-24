@@ -1,7 +1,9 @@
 import React from 'react'
+import { useBalance } from '../contexts/BalanceContext'
 
 const Navbar = () => {
-  return (
+  const {balance} = useBalance();
+    return (
     <>
       {/* Top Section: Balance and Coinbase */}
       <div className="flex justify-between items-center px-3">
@@ -13,7 +15,7 @@ const Navbar = () => {
               <h4 className="text-[#9a9da6]  font-semibold">
                 LIVE ACCOUNT
               </h4>
-              <p className="text-black font-bold">0.00</p>
+              <p className="text-black font-bold">{balance}</p>
             </div>
             {/* <button className="bg-[#FFD53D] text-black px-4 py-2 rounded-md font-semibold">
             Withdraw

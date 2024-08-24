@@ -1,8 +1,11 @@
-import React, { useState } from "react";
-import Navbar from "./Navbar";
-import { flipCoin } from "../utils/flipCoin"; 
-import { toast, ToastContainer } from 'react-toastify'; 
-import 'react-toastify/dist/ReactToastify.css'; 
+// src/components/Home.js
+
+import React, { useEffect, useState } from 'react';
+import Navbar from './Navbar';
+import { flipCoin } from '../utils/flipCoin';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { useBalance } from '../contexts/BalanceContext'; 
 
 const Home = () => {
   const [selectedSide, setSelectedSide] = useState("");
@@ -10,32 +13,43 @@ const Home = () => {
   const [flipping, setFlipping] = useState(false);
   const [result, setResult] = useState("");
   const [isReset, setIsReset] = useState(true);
+  const [toastVisible, setToastVisible] = useState(false);
+  const { balance, updateBalance } = useBalance(); 
 
   const handleIncrement = () => {
-    setInvestment((prev) => prev + 1);
+    setInvestment(prev => prev + 1);
   };
 
   const handleDecrement = () => {
     if (investment > 1) {
-      setInvestment((prev) => prev - 1);
+      setInvestment(prev => prev - 1);
     }
   };
 
   const handleClickBet = (side) => {
     if (!isReset) return;
+    if (investment > balance) {
+      toast.error("Insufficient balance!");
+      return;
+    }
     setSelectedSide(side);
     setFlipping(true);
     setIsReset(false);
+    updateBalance(-investment); 
 
     setTimeout(() => {
       const flipResult = flipCoin();
       setResult(flipResult);
       setFlipping(false);
-      
+      setToastVisible(true);
       if (flipResult === side) {
-        toast.success("You won!", { onClose: handleReset });
+        toast.success("You won!");
+        let temp = investment * 2;
+        debugger
+        updateBalance(temp); 
       } else {
-        toast.error("You lost!", { onClose: handleReset });
+        toast.error("You lost!");      
+        
       }
     }, 4000);
   };
@@ -45,7 +59,17 @@ const Home = () => {
     setResult("");
     setFlipping(false);
     setIsReset(true);
+    setToastVisible(false)
   };
+
+  useEffect(() => {
+    if (toastVisible) {
+      setTimeout(() => {
+        handleReset();
+        setToastVisible(false);
+      },6000); 
+    }
+  }, [toastVisible]);
 
   return (
     <>
@@ -104,7 +128,7 @@ const Home = () => {
         </div>
       </div>
 
-      <ToastContainer />
+      <ToastContainer position="bottom-right"/>
       
       <style jsx>{`
         .coin {
