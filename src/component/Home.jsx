@@ -1,33 +1,62 @@
-// src/components/Home.js
-
 import React, { useEffect, useState } from 'react';
 import Navbar from './Navbar';
 import { flipCoin } from '../utils/flipCoin';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { useBalance } from '../contexts/BalanceContext'; 
+import { useBalance } from '../contexts/BalanceContext';
 
 const Home = () => {
   const [selectedSide, setSelectedSide] = useState("");
-  const [investment, setInvestment] = useState(1);
+  const [investment, setInvestment] = useState(0.01); // Default investment set to 0.01
   const [flipping, setFlipping] = useState(false);
   const [result, setResult] = useState("");
   const [isReset, setIsReset] = useState(true);
   const [toastVisible, setToastVisible] = useState(false);
-  const { balance, updateBalance } = useBalance(); 
+  const [insufficientBalance, setInsufficientBalance] = useState(false); // New state
+  const { balance, updateBalance } = useBalance();
+  const [betHistory, setBetHistory] = useState([]); // State to store the bet history
 
   const handleIncrement = () => {
-    setInvestment(prev => prev + 1);
+    if (investment + 0.01 <= balance) {
+      setInvestment(prev => +(prev + 0.01).toFixed(2)); 
+      setInsufficientBalance(false);
+    }
   };
 
   const handleDecrement = () => {
-    if (investment > 1) {
-      setInvestment(prev => prev - 1);
+    if (investment > 0.01) {
+      setInvestment(prev => +(prev - 0.01).toFixed(2)); 
+      setInsufficientBalance(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const value = parseFloat(e.target.value);
+
+    if (e.target.value === "") {
+      setInvestment("");
+      setInsufficientBalance(false);
+      return;
+    }
+
+    if (value < 0) {
+      setInvestment(0);
+      setInsufficientBalance(false);
+      return;
+    }
+
+    if (value <= balance) {
+      setInvestment(value);
+      setInsufficientBalance(false);
+    } else {
+      setInvestment(value);
+      setInsufficientBalance(true);
     }
   };
 
   const handleClickBet = (side) => {
     if (!isReset) return;
+
     if (investment > balance) {
       toast.error("Insufficient balance!");
       return;
@@ -35,21 +64,32 @@ const Home = () => {
     setSelectedSide(side);
     setFlipping(true);
     setIsReset(false);
-    updateBalance(-investment); 
+    updateBalance(-investment);
 
     setTimeout(() => {
       const flipResult = flipCoin();
       setResult(flipResult);
       setFlipping(false);
       setToastVisible(true);
-      if (flipResult === side) {
+
+      const betOutcome = flipResult === side ? 'Win' : 'Loss';
+      const newBet = {
+        side,
+        result: flipResult,
+        investment,
+        outcome: betOutcome
+      };
+
+      setBetHistory(prevHistory => {
+        const updatedHistory = [newBet, ...prevHistory];
+        return updatedHistory.slice(0, 5); // Keep only the last 5 bets
+      });
+
+      if (betOutcome === 'Win') {
         toast.success("You won!");
-        let temp = investment * 2;
-        debugger
-        updateBalance(temp); 
+        updateBalance(investment * 2);
       } else {
-        toast.error("You lost!");      
-        
+        toast.error("You lost!");
       }
     }, 4000);
   };
@@ -59,7 +99,8 @@ const Home = () => {
     setResult("");
     setFlipping(false);
     setIsReset(true);
-    setToastVisible(false)
+    setToastVisible(false);
+    setInsufficientBalance(false);
   };
 
   useEffect(() => {
@@ -67,7 +108,7 @@ const Home = () => {
       setTimeout(() => {
         handleReset();
         setToastVisible(false);
-      },6000); 
+      }, 6000);
     }
   }, [toastVisible]);
 
@@ -107,11 +148,23 @@ const Home = () => {
               <button className="text-gray-400 text-2xl mr-4" onClick={handleDecrement}>
                 -
               </button>
-              <span className="text-white text-lg">{investment}</span>
+              <input
+                className="text-white text-lg bg-transparent text-center w-full focus:none outline-none" // Minimal or no styling
+                type="number"
+                value={investment}
+                min="0.0"
+                step="0.01"
+                onChange={handleInputChange}
+              />
               <button className="text-gray-400 text-2xl ml-4" onClick={handleIncrement}>
                 +
               </button>
             </div>
+            {insufficientBalance && (
+              <div className="text-red-500 text-sm mt-2 text-center">
+                You have insufficient balance.
+              </div>
+            )}
           </div>
           <div className="flex flex-col items-center justify-center gap-[10px] mt-4">
             <button className="bg-[#28be6e] text-white px-4 py-2 rounded-md font-medium w-full" onClick={() => handleClickBet("Head")}>
@@ -125,10 +178,26 @@ const Home = () => {
               Reset
             </button>
           </div>
+          {/* Display Bet History */}
+          <div className="mt-6">
+            <h2 className="text-lg font-bold text-center mb-4">Bet History</h2>
+            <div className="list-disc flex flex-col gap-1">
+              {betHistory.map((bet, index) => (
+                <div
+                  key={index}
+                  className={`text-sm ${bet.outcome === 'Win' ? 'bg-green-500' : 'bg-red-500'} rounded-md p-2`}
+                >
+                  Bet on <strong>{bet.side}</strong> with {bet.investment} ETH - Result: {bet.result} ({bet.outcome})
+                  {bet.outcome === 'Win' ? ` You won ${bet.investment * 2} ETH` : `You Loss ${bet.investment} ETH`}
+                </div>
+              ))}
+            </div>
+
+          </div>
         </div>
       </div>
 
-      <ToastContainer position="bottom-right"/>
+      <ToastContainer position="bottom-right" />
       
       <style jsx>{`
         .coin {
@@ -158,6 +227,15 @@ const Home = () => {
           100% {
             transform: rotateY(3600deg); 
           }
+        }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+
+        input[type="number"] {
+          -moz-appearance: textfield; /* For Firefox */
         }
       `}</style>
     </>
